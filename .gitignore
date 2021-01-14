@@ -1,0 +1,6 @@
+arend.yaml
+out
+.bin
+.idea
+**/*.arc
+term8-types.iml
