@@ -22,8 +22,13 @@
       | cons x xs => \let rest => sort xs less
                      \in pushin x rest less
   \where \func pushin {A : \Type} (x : A) (l : List A) (less : A -> A -> Bool) : List A \elim l
-      | nil => nil
+      | nil => (cons x nil)
       | cons a as => if (less x a) (cons x (cons a as)) (cons a (pushin x as less))
+
+\func natLess (x : Nat) (y : Nat) : Bool
+      | _, zero => false
+      | zero, (suc y) => true
+      | (suc x), (suc y) => natLess x y
 
 -- 3. Докажите ассоциативность && и ||.
 
@@ -52,7 +57,7 @@
   | inr b => g b
 
 -- t3 : ((P -> Q -> R) -> P) -> (P -> R) -> R
-\func t3 {P Q R : \Type} (f : (P -> Q -> R) -> P) (g : P -> R) : R =>  {?}
+-- \func t3 {P Q R : \Type} (f : (P -> Q -> R) -> P) (g : P -> R) : R =>  {?}
 
 -- 6. Сформулируйте и докажите следующие пропозициональные тавтологии (choose 2 out of 3).
 
@@ -66,7 +71,7 @@
      \in (fst, snd)
 
 -- t6 : ((((P -> Q) -> P) -> P) -> Q) -> Q
-\func t6 {P Q R : \Type} (f : (((P -> Q) -> P) -> P) -> Q) : Q => {?}
+-- \func t6 {P Q R : \Type} (f : (((P -> Q) -> P) -> P) -> Q) : Q => {?}
 -- (
 --   (((P -> Q) -> P) -> P)
 --   -> Q)
