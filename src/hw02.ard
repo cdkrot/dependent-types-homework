@@ -1,44 +1,91 @@
 \import Utils
+\import hw01 (fac)
 
 -- 1. Определите полиморфный tail для списков.
 
+\func tail {A : \Type} (l : List A) : List A
+    | nil => nil
+    | cons x xs => xs
+
 -- 2. Реализуйте любой (but choose wisely) алгоритм сортировки. Функцию сравнения можно принимать в качестве аргумента.
+--\func sort {A : \Type} (l : List A) (less : A -> A -> Bool) : List A \elim l
+--    | nil => nil
+--    | cons x xs => \let (mn, rest) => extMin x xs less
+--                   \in cons mn (sort rest less)
+--  \where \func extMin {A : \Type} (x : A) (xs : List A) (less : A -> A -> Bool) : \Sigma A (List A) \elim xs
+--    | nil => (x, nil)
+--    | cons a as => \let (mn, rest) => extMin a as less
+--                   \in if (less a mn) (a, cons mn rest) (mn, cons a rest)
+
+\func sort {A : \Type} (l : List A) (less : A -> A -> Bool) : List A \elim l
+      | nil => nil
+      | cons x xs => \let rest => sort xs less
+                     \in pushin x rest less
+  \where \func pushin {A : \Type} (x : A) (l : List A) (less : A -> A -> Bool) : List A \elim l
+      | nil => nil
+      | cons a as => if (less x a) (cons x (cons a as)) (cons a (pushin x as less))
 
 -- 3. Докажите ассоциативность && и ||.
 
-\func &&-assoc (x y z : Bool) : (x && y) && z = x && (y && z) => {?}
+\func &&-assoc (x y z : Bool) : (x && y) && z = x && (y && z) \elim x, y
+  | false, _ => idp
+  | true, false => idp
+  | true, true => idp
 
-\func ||-assoc (x y z : Bool) : (x || y) || z = x || (y || z) => {?}
+\func ||-assoc (x y z : Bool) : (x || y) || z = x || (y || z) \elim x, y
+  | true, _ => idp
+  | false, true => idp
+  | false, false => idp
 
 -- 4. Докажите, что fac 3 равно 6.
+
+\func fac3_is_6 : (fac 3 = 6) => idp
 
 -- 5. Докажите следующие пропозициональные тавтологии (choose 2 out of 3).
 
 -- t1 : (P and Q -> R) -> P -> Q -> R
-\func t1 {P Q R : \Type} (f : \Sigma P Q -> R) (p : P) (q : Q) : R => {?}
+\func t1 {P Q R : \Type} (f : \Sigma P Q -> R) (p : P) (q : Q) : R => f (p, q)
 
 -- t2 : (P -> R) -> (Q -> R) -> P or Q -> R
-\func t2 {P Q R : \Type} (f : P -> R) (g : Q -> R) (h : Either P Q) : R => {?}
+\func t2 {P Q R : \Type} (f : P -> R) (g : Q -> R) (h : Either P Q) : R \elim h
+  | inl a => f a
+  | inr b => g b
 
 -- t3 : ((P -> Q -> R) -> P) -> (P -> R) -> R
-\func t3 {P Q R : \Type} (f : (P -> Q -> R) -> P) (g : P -> R) : R => {?}
+\func t3 {P Q R : \Type} (f : (P -> Q -> R) -> P) (g : P -> R) : R =>  {?}
 
 -- 6. Сформулируйте и докажите следующие пропозициональные тавтологии (choose 2 out of 3).
 
 -- t4 : (P -> Q -> R) -> P and Q -> R
+\func t4 {P Q R : \Type} (f : P -> Q -> R) (g : \Sigma P Q) : R => (f g.1 g.2)
+
 -- t5 : (P or Q -> P and Q) -> (P -> Q) and (Q -> P)
+\func t5 {P Q R : \Type} (f : Either P Q -> \Sigma P Q) : (\Sigma (P -> Q) (Q -> P))
+  => \let | fst x => (f (inl x)).2
+          | snd x => (f (inr x)).1
+     \in (fst, snd)
+
 -- t6 : ((((P -> Q) -> P) -> P) -> Q) -> Q
+\func t6 {P Q R : \Type} (f : (((P -> Q) -> P) -> P) -> Q) : Q => {?}
+-- (
+--   (((P -> Q) -> P) -> P)
+--   -> Q)
 
 -- 7. Докажите следующие утверждения.
 
 -- s1 : Если для любого x : Nat верно P(x), то существует x : Nat для которого P(x) верно.
-\func s1 (P : Nat -> \Type) (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x) => {?}
+\func s1 (P : Nat -> \Type) (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x) => (0, h 0)
 
 -- s2 : Если не существует x : Nat такого, что верно P(x), то P(3) не верно.
-\func s2 (P : Nat -> \Type) (h : \Sigma (x : Nat) (P x) -> Empty) : P 3 -> Empty => {?}
+\func s2 (P : Nat -> \Type) (h : \Sigma (x : Nat) (P x) -> Empty) : P 3 -> Empty => (\lam (p3 : P 3) => h (3, p3))
 
 -- 8. Сформулируйте и докажите следующие утверждения.
 
 -- s3 : Если для всех x : Nat верно, что P(x) влечет Q(x), и существует x : Nat для которого верно P(x), то существует x : Nat для которого верно Q(x).
 
+\func s3 (P : Nat -> \Type) (Q : Nat -> \Type) (f : \Pi (x : Nat) (P x) -> (Q x)) (g : \Sigma (x : Nat) (P x)) : (\Sigma (x : Nat) (Q x))
+  => (g.1, (f g.1 g.2))
+
 -- s4 : Если для всех x : Nat либо не верно P(x), либо не верно Q(x), то P(3) влечет, что Q(3) не верно.
+\func s4 (P : Nat -> \Type) (Q : Nat -> \Type) (f : \Pi (x : Nat) (P x) -> (Q x) -> Empty) : ((P 3) -> Not (Q 3))
+  => (\lam (p3 : (P 3)) => f 3 p3)
