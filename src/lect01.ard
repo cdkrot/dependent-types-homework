@@ -19,9 +19,9 @@
 \func id' (x : Nat) : Nat => x  -- тождественная функция на типе натуральных чисел с явно указанным типом результата.
 \func id+ (x : Nat) => x -- в идентификаторах могут встречаться произвольные символы.
 \func id'' (x:Nat -- x:Nat -- валидный идентификатор.
-           :
-           -- пробельные символы игнорируются.
-           Nat) => x:Nat    -- x:Nat -- это тоже валидный идентификатор.
+   :
+                    -- пробельные символы игнорируются.
+   Nat) => x:Nat    -- x:Nat -- это тоже валидный идентификатор.
 {- Haskell:
    id :: Nat -> Nat
    id x = x
@@ -124,8 +124,8 @@
 -- 4. Bool, not, ||, if then else
 
 \data Bool
-  | false
-  | true
+   | false
+   | true
 -- имена типов данных и конструкторов могут начинаться с любой буквы в отличии от хаскелла.
 {- Haskell:
    data Bool
@@ -150,8 +150,8 @@
 -}
 
 \func not (x : Bool) : Bool -- \with
-  | true => false
-  | false => true
+   | true => false
+   | false => true
 {- Haskell:
    not :: Bool -> Bool
    not True = False
@@ -159,8 +159,8 @@
 -}
 
 \func if (x : Bool) (t e : Nat) : Nat \elim x
-  | true => t
-  | false => e
+   | true => t
+   | false => e
 {- Haskell:
    if :: Bool -> Nat -> Nat -> Nat
    if True t e = t
@@ -168,12 +168,12 @@
 -}
 
 \func example (x y a b c d : Bool) : Bool \elim x, y
-  | true, false => a
-  | true, true => b
-  | false, y => \case y, a \with {
-    | true, a => c
-    | false, a => a
-  }
+   | true, false => a
+   | true, true => b
+   | false, y => \case y, a \with {
+      | true, a => c
+      | false, a => a
+   }
 {- Haskell:
    example True False a b c d = a
    example True True a b c d = b
@@ -183,8 +183,8 @@
 -}
 
 \func \infixr 3 && (x y : Bool) : Bool \elim x
-  | true => y
-  | false => false
+   | true => y
+   | false => false
 {- Haskell:
    (&&) :: Bool -> Bool -> Bool
    True && y = y
@@ -197,9 +197,9 @@
 
 -- такое представление более эффективно, но не так удобно для доказательств.
 \data BinNat
-  | zero''
-  | sh+1 BinNat -- x*2+1
-  | sh+2 BinNat -- x*2+2
+   | zero''
+   | sh+1 BinNat -- x*2+1
+   | sh+2 BinNat -- x*2+2
 
 -- эти определения эквивалентны
 \func three => suc (suc (suc zero))
@@ -209,8 +209,8 @@
 \func bigNumber => 1000000000000000000000000
 
 \func \infixl 6 + (x y : Nat) : Nat \elim y
-  | 0 => x
-  | suc y => suc (x + y)
+   | 0 => x
+   | suc y => suc (x + y)
 {- Haskell:
    (+) :: Nat -> Nat -> Nat
    x + Zero = x
@@ -245,15 +245,15 @@
 -- \func f : Nat => f
 
 \func \infixl 6 - (x y : Nat) : Nat
-  | 0, _ => 0
-  | suc x, 0 => suc x
-  | suc x, suc y => x - y
+   | 0, _ => 0
+   | suc x, 0 => suc x
+   | suc x, suc y => x - y
 
 \func \infix 4 < (x y : Nat) : Bool
-  | 0, 0 => false
-  | 0, suc y => true
-  | suc x, 0 => false
-  | suc x, suc y => x < y
+   | 0, 0 => false
+   | 0, suc y => true
+   | suc x, 0 => false
+   | suc x, suc y => x < y
 
 -- \func div2 (x y : Nat) : Nat => if (x < y) 0 (suc (div2 (x - y) y))
 {-
@@ -267,10 +267,10 @@
 -- Например, глубина рекурсии при вычислении div x y составляет x/y шагов, что меньше либо равно x, так что можно эту функцию определить следующим образом:
 
 \func div (x y : Nat) => div' x x y
-  \where
-    \func div' (s x y : Nat) : Nat \elim s
-      | 0 => 0
-      | suc s => if (x < y) 0 (suc (div' s (x - y) y))
+   \where
+      \func div' (s x y : Nat) : Nat \elim s
+         | 0 => 0
+         | suc s => if (x < y) 0 (suc (div' s (x - y) y))
 
 -- Таким образом можно протестировать нашу функцию.
 \func divTest1 : div 100 5 = 20 => idp
