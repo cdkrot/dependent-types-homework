@@ -92,5 +92,9 @@
   => (g.1, (f g.1 g.2))
 
 -- s4 : Если для всех x : Nat либо не верно P(x), либо не верно Q(x), то P(3) влечет, что Q(3) не верно.
-\func s4 (P : Nat -> \Type) (Q : Nat -> \Type) (f : \Pi (x : Nat) (P x) -> (Q x) -> Empty) : ((P 3) -> Not (Q 3))
-  => (\lam (p3 : (P 3)) => f 3 p3)
+\func s4 (P : Nat -> \Type) (Q : Nat -> \Type) (f : \Pi (x : Nat) -> Either (Not (P x)) (Not (Q x))) : ((P 3) -> Not (Q 3))
+  => (\lam (p3 : (P 3)) => \case f 3 \with {
+                            | inl not_p3 => absurd (not_p3 p3)
+                            | inr not_q3 => not_q3
+                            })
+
