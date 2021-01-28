@@ -12,51 +12,107 @@
   | suc x, 0 => false
   | suc x, suc y => x < y
 
-\func lookup => {?}
+\func contradictLessThanZero {A : \Type} (x : Nat) (t : T (x < 0)) : A
+  | 0, ()
+  | suc x, ()
+
+\func lookup {A : \Type} (lst : List A) (i : Nat) (t : T (i < length lst)) : A \elim lst, i
+  | cons a as, 0 => a
+  | cons a as, suc n => lookup as n t
+  | nil, i => contradictLessThanZero i t
 
 -- 2. Реализуйте аналоги функции replicate для vec и Vec (эта функция создает список заданной длины, состоящий из повторений данного элемента).
 
+\func replicate_vec {A : \Type} (x : A) (n : Nat) : vec A n
+  | x, 0 => ()
+  | x, suc n => (x, replicate_vec x n)
+
+\func replicate_Vec {A : \Type} (x : A) (n : Nat) : Vec A n
+  | x, 0 => vnil
+  | x, suc n => vcons x (replicate_Vec x n)
+
 -- 3. Реализуйте аналоги функции map для vec и Vec.
+
+\func map_vec {A B : \Type} {n : Nat} (f : A -> B) (lst : vec A n) : vec B n \elim n, lst
+  | 0, () => ()
+  | suc n, (x, xs) => (f x, map_vec f xs)
+
+\func map_Vec {A B : \Type} {n : Nat} (f : A -> B) (lst : Vec A n) : Vec B n \elim n, lst
+  | 0, vnil => vnil
+  | suc n, vcons x xs => vcons (f x) (map_Vec f xs)
 
 -- 4. Реализуйте аналоги функции zipWith для vec и Vec.
 --    Функция должна принимать вектора одинаковой длины.
 
+\func zipWith {A B : \Type} {n : Nat} (vec1 : vec A n) (vec2 : vec B n) : vec (\Sigma A B) n \elim n, vec1, vec2
+  | 0, (), () => ()
+  | suc n, (x, xs), (y, ys) => ((x, y), zipWith xs ys)
+
+\func zipWith2 {A B : \Type} {n : Nat} (vec1 : Vec A n) (vec2 : Vec B n) : Vec (\Sigma A B) n \elim n, vec1, vec2
+  | 0, vnil, vnil => vnil
+  | suc n, (vcons x xs), (vcons y ys) => vcons (x, y) (zipWith2 xs ys)
+
 -- 5. Определите конгруэнтность для функций двух аргументов через transport.
 --    Можно использовать любые функции, определенные через transport.
 
-\func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' => {?}
+-- \func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' => path (\lam i => f (p @ i))
+
+-- \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a' \elim p
+--  | idp => b
+
+-- \func pmap' {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+--  => transport (\lam x => f a = f x) p idp
+
+\func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b'
+  => \let tmp : (f a b = f a' b) => transport (\lam x => f a b = f x b) p idp
+     \in \let tmp' : (f a b = f a' b') => transport (\lam x => f a b = f a' x) q tmp
+         \in tmp'
 
 -- 6. Докажите, что transport выражается через pmap и repl и наоборот.
 
 -- repl говорит, что если у нас есть два равных типа, то у нас есть функция из одного во второй.
 -- Определите repl через transport.
 
-\func repl {A B : \Type} (p : A = B) (a : A) : B => {?}
+\func repl {A B : \Type} (p : A = B) (a : A) : B => transport (\lam x => x) p a
 
 -- Определите transport через repl и pmap.
 
-\func transport' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a' => {?}
+\func transport' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+ => \let tmp =>  pmap B p
+    \in repl tmp b
 
 -- 7. Определите тип CTree A n полных бинарных деревьев высоты ровно n, которые хранят элементы только во внутренних узлах, но не в листьях.
 --    Высота листа равна 0.
 
-\data CTree (A : \Type) (n : Nat)
+\data CTree (A : \Type) (n : Nat) \elim n
+    | 0 => cleaf
+    | suc n => cnode A (CTree A n) (CTree A n)
 
 -- 8. Определите тип Tree A n бинарных деревьев высоты не больше n, которые хранят элементы только во внутренних узлах, но не в листьях.
 --    Высота листа равна 0.
 
-\data Tree (A : \Type) (n : Nat)
+\data Tree (A : \Type) (n : Nat) \elim n
+  | _ => leaf
+  | suc n => node A (Tree A n) (Tree A n)
 
 -- определите функцию, возвращающую высоту дерева.
 
-\func height {A : \Type} (n : Nat) (t : Tree A n) : Fin (suc n) => {?}
+\func finmax {n : Nat} (a b : Fin n) : Fin n \elim n, a, b
+  | 0, a, b => a
+  | suc n, fzero, b => b
+  | suc n, a, fzero => a
+  | suc n, fsuc a, fsuc b => fsuc (finmax a b)
+
+\func height {A : \Type} (n : Nat) (t : Tree A n) : Fin (suc n) \elim n, t
+  | _, leaf => fzero
+  | suc n, node _ l r => fsuc (finmax (height n l) (height n r))
 
 -- Optional task
 -- 9. Функции Fin n -> A соответствуют спискам элементов A длины n.
 --     Функция, преобразующая Vec A n в Fin n -> A, была реализована на лекции.
 --     Реализуйте обратную функцию.
 
-\func coin {A : \Type} {n : Nat} (f : Fin n -> A) : Vec A n => {?}
+\func coin {A : \Type} {n : Nat} (f : Fin n -> A) : Vec A n  => {?}
 
 -- Optional task
 -- 10. Определите тип матриц и ряд функций над ними.
@@ -86,13 +142,57 @@
   | nil => nil
   | cons x xs => reverse xs ++ cons x nil
 
--- Это утверждение будет полезно для доказательства.
-\func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs => {?}
+\func nilconcat {A : \Type} (lst : List A) : (lst = lst ++ nil)
+  | nil => idp
+  | cons x xs => \let tmp => nilconcat xs
+                  \in pmap (cons x) tmp
 
-\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs => {?}
+\func ++-ass {A : \Type} (x : List A) (y : List A) (z : List A) : ((x ++ y) ++ z = x ++ (y ++ z))
+  | nil, _, _ => idp
+  | (cons a as), b, c => pmap (cons a) (++-ass as b c)
+
+-- Это утверждение будет полезно для доказательства.
+\func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs
+  | nil, ys => nilconcat (reverse ys)
+  | cons x xs, ys => \let tmp => reverse++ xs ys
+                     \in \let tmp2 : ((reverse ys ++ reverse xs) ++ cons x nil = reverse ys ++ (reverse xs ++ cons x nil))
+                              => ++-ass (reverse ys) (reverse xs) (cons x nil)
+                         \in \let tmp3 : (reverse (xs ++ ys) ++ cons x nil = (reverse ys ++ reverse xs) ++ cons x nil)
+                              => pmap (\lam t => t ++ (cons x nil)) tmp
+                             \in trans tmp3 tmp2
+
+\func reverse-isInvolutive {A : \Type} (lst : List A) : reverse (reverse lst) = lst
+  | nil => idp
+  | cons x xs => \let tmp => reverse-isInvolutive xs
+                  \in \let tmp1 => reverse++ xs (cons x nil)
+                  \in \let tmp2 : (reverse ((reverse xs) ++ cons x nil) = (cons x nil) ++ (reverse (reverse xs)))
+                          => reverse++ (reverse xs) (cons x nil)
+                      \in \let tmp3 : (cons x (reverse (reverse xs)) = cons x xs) => pmap (cons x) tmp
+                          \in trans tmp2 tmp3
 
 -- 12. Докажите дистрибутивность умножения над сложением для натуральных чисел (выберите 1 из двух вариантов).
 
-\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n => {?}
+\import lect02 (+-assoc)
+\import lect03 (+-comm)
+
+\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n
+  | 0, _, _ => idp
+  | suc n, m, k => \let tmp : (m * n + (k * n + m) = m * n + (m + k * n))
+                            => pmap (\lam x => m * n + x) (+-comm (k * n) m)
+                   \in \let tmp2 : ((m * n + k * n) + m + k = (m * n + m) + k * n + k)
+                            => \let  tmp1 : ((m * n + k * n) + m = (m * n + m) + k * n)
+                                    => trans (trans (+-assoc (m * n) (k * n) m) tmp) (sym (+-assoc (m * n) m (k * n)))
+                               \in (pmap (\lam x => x + k) tmp1)
+                       \in \let tmp3 : ((m * n + k * n) + m + k = (m * n + m) + (k * n + k))
+                                => \let tmptmp : (((m * n + m) + k * n) + k = (m * n + m) + (k * n + k))
+                                        => +-assoc (m * n + m) (k * n) k
+                                    \in trans tmp2 tmptmp
+                           \in \let tmp4 : ((m + k) * n + m + k = m * n + k * n + m + k)
+                                        => (pmap (\lam x => x + m + k) (rdistr n m k))
+                               \in \let tmp5 : ((m + k) * n + (m + k) = (m + k) * n + m + k)
+                                        => sym (+-assoc ((m + k) * n) m k)
+                                   \in trans tmp5 (trans tmp4 tmp3)
+
+           -- Expected type: (m + k) * n + (m + k) = m * n + m + (k * n + k)
 
 \func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
