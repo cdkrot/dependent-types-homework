@@ -69,7 +69,7 @@
 
 -- 5. Докажите pmap при помощи паттерн матчинга с idp.
 
-\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' \elim p
+\func pmap' {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' \elim p
   | idp => idp
 
 -- Optional:
@@ -101,9 +101,7 @@
   | 0, vnil => idp
   | suc n, vcons a xs => \let pmap_ch => pmap (vcons a) (vnil-rightId xs)
                              \in \let ttt => vcons-lem (+-comm 0 n) (xs v++ vnil) a
-                                 \in \let azaz => ttt *> pmap_ch
-                                     \in \let suceq => pmap suc (+-comm 0 n)
-                                           \in {?}
+                                 \in  ttt *> pmap_ch
   \where \func vcons-lem {A : \Type} {n m : Nat} (p : n = m) (xs : Vec A n) (x : A)
       : (transport (Vec A) (pmap suc p) (vcons x xs)) = vcons x (transport (Vec A) p xs)
       => J (\lam m' p' => transport (Vec A) (pmap suc p') (vcons x xs) = vcons x (transport (Vec A) p' xs))
