@@ -1,10 +1,23 @@
 \import Utils
 \import lect03 (+-comm)
+\import lect04 (Nat-elim, Nat-rec)
 \open Nat \hiding (<=)
 
 -- 1. Определите факториал через Nat-rec.
 
+\func fact (n : Nat) : Nat => Nat-rec Nat 1 (\lam newval rec => newval * rec) n
+
 -- 2. Докажите ассоциативность сложения для натуральных чисел через Nat-elim.
+
+-- \func +-assoc (x y z : Nat) : (x + y) + z = x + (y + z) \elim z
+-- | 0 => idp
+-- | suc z => pmap suc (+-assoc x y z)
+
+\func +-assoc (x y z : Nat) : ((x + y) + z = x + (y + z))
+  => Nat-elim (\lam z => (x + y) + z = x + (y + z))
+      idp
+      (\lam z rec => pmap suc rec)
+      z
 
 -- 3. Определите рекурсор и элиминатор для D.
 
@@ -13,11 +26,44 @@
   | con2 D D
   | con3 (Nat -> D)
 
+\func D-rec (P : \Type)
+            (val_con1 : Nat -> P)
+            (val_con2 : P -> P -> P)
+            (val_con3 : (Nat -> P) -> P)
+            (x : D) : P \elim x
+  | con1 n => val_con1 n
+  | con2 x1 x2 => val_con2 (D-rec P val_con1 val_con2 val_con3 x1) (D-rec P val_con1 val_con2 val_con3 x2)
+  | con3 f => val_con3 (\lam nat => D-rec P val_con1 val_con2 val_con3 (f nat))
+
+\func D-elim (P : D -> \Type)
+             (val_con1 : \Pi (n : Nat) -> P (con1 n))
+             (val_con2 : \Pi (d1 d2 : D) -> P d1 -> P d2 -> P (con2 d1 d2))
+             (val_con3 : \Pi (f : Nat -> D) (f' : \Pi (x : Nat) -> P (f x)) -> P (con3 f))
+             (x : D) : P x \elim x
+  | con1 n => val_con1 n
+  | con2 x1 x2 => val_con2 x1 x2 (D-elim P val_con1 val_con2 val_con3 x1) (D-elim P val_con1 val_con2 val_con3 x2)
+  | con3 f => val_con3 f (\lam nat => D-elim P val_con1 val_con2 val_con3 (f nat))
+
 -- 4. Определите рекурсор и элиминатор для List.
+
+\func List-elim {A : \Type}
+                (P : List A -> \Type)
+                (val_nil : P nil)
+                (val_cons : \Pi (h : A) (t : List A) -> P t -> P (cons h t))
+                (l : List A) : P l \elim l
+  | nil => val_nil
+  | cons a l => val_cons a l (List-elim P val_nil val_cons l)
+
+\func List-rec {A : \Type}
+               (P : \Type)
+               (val_nil : P)
+               (val_cons : A -> P -> P)
+               (l : List A) : P => List-elim (\lam lst => P) val_nil (\lam h t recres => val_cons h recres) l
 
 -- 5. Докажите pmap при помощи паттерн матчинга с idp.
 
-\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' => {?}
+\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' \elim p
+  | idp => idp
 
 -- Optional:
 -- 6. У оператора J есть другая форма, которую мы будем называть Jalt. Докажите, что J и Jalt эквивалентны, то есть выразите одно через другое и наоборот.
@@ -44,8 +90,16 @@
 
 -- 7. Докажите, что vnil является нейтральным элементом для v++.
 
-\func vnil-rightId {A : \Type} {n : Nat} (xs : Vec A n) : transport (Vec A) (+-comm 0 n) (xs v++ vnil) = xs => {?}
+\func vnil-rightId {A : \Type} {n : Nat} (xs : Vec A n) : transport (Vec A) (+-comm 0 n) (xs v++ vnil) = xs \elim n, xs
+  | 0, vnil => idp
+  | suc n, vcons a xs => \let tmp : (0 + n = n) => +-comm 0 n
+                  \in \let ch : transport (Vec A) (+-comm 0 n) (xs v++ vnil) = xs => vnil-rightId xs
+                      \in {?}
 
 -- 8. Докажите, что 0 не равно suc x, не используя паттерн матчинг на равенстве.
 
-\func zero/=suc (x : Nat) (p : 0 = suc x) : Empty => {?}
+\func zero/=suc (x : Nat) (p : 0 = suc x) : Empty =>
+  transport Tmp p ()
+  \where \func Tmp (n : Nat) : \Type
+  | 0 => \Sigma
+  | (suc z) => Empty
