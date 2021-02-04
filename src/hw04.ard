@@ -1,5 +1,5 @@
 \import Utils
-\import lect03 (+-comm)
+\import lect03 (+-comm, trans)
 \import lect04 (Nat-elim, Nat-rec)
 \open Nat \hiding (<=)
 
@@ -99,9 +99,32 @@
 
 \func vnil-rightId {A : \Type} {n : Nat} (xs : Vec A n) : transport (Vec A) (+-comm 0 n) (xs v++ vnil) = xs \elim n, xs
   | 0, vnil => idp
-  | suc n, vcons a xs => \let tmp : (0 + n = n) => +-comm 0 n
-                  \in \let ch : transport (Vec A) (+-comm 0 n) (xs v++ vnil) = xs => vnil-rightId xs
-                      \in {?}
+  | suc n, vcons a xs => \let pmap_ch => pmap (vcons a) (vnil-rightId xs)
+                             \in \let ttt => vcons-lem (+-comm 0 n) (xs v++ vnil) a
+                                 \in \let azaz => ttt *> pmap_ch
+                                     \in \let suceq => pmap suc (+-comm 0 n)
+                                           \in {?}
+  \where \func vcons-lem {A : \Type} {n m : Nat} (p : n = m) (xs : Vec A n) (x : A)
+      : (transport (Vec A) (pmap suc p) (vcons x xs)) = vcons x (transport (Vec A) p xs)
+      => J (\lam m' p' => transport (Vec A) (pmap suc p') (vcons x xs) = vcons x (transport (Vec A) p' xs))
+          idp p
+
+
+--\func v++-assoc {A : \Type} {n m k : Nat}
+--                (xs : Vec A n) (ys : Vec A m) (zs : Vec A k)
+--  : transport (Vec A) (+-assoc k m n) ((xs v++ ys) v++ zs) = xs v++ (ys v++ zs)
+--\elim n, xs
+--  | 0, vnil => idp
+--  | suc n, vcons a xs => vcons-lem (+-assoc k m n) ((xs v++ ys) v++ zs) a *>
+--  pmap (vcons a) (v++-assoc xs ys zs)
+--  \where {
+--    \func vcons-lem {A : \Type} {n m : Nat} (p : n = m) (xs : Vec A n) (x : A)
+--      : transport (Vec A) (pmap suc p) (vcons x xs) = vcons x (transport (Vec A) p xs)
+--      => J (\lam m' p' => transport (Vec A) (pmap suc p') (vcons x xs) = vcons x (transport (Vec A) p' xs))
+--          idp p
+--  }
+--
+
 
 -- 8. Докажите, что 0 не равно suc x, не используя паттерн матчинг на равенстве.
 
