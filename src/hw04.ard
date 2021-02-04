@@ -44,6 +44,13 @@
   | con2 x1 x2 => val_con2 x1 x2 (D-elim P val_con1 val_con2 val_con3 x1) (D-elim P val_con1 val_con2 val_con3 x2)
   | con3 f => val_con3 f (\lam nat => D-elim P val_con1 val_con2 val_con3 (f nat))
 
+{- To check that the definition of D-elim and D-rec is correct, you can try to implement foo using D-rec.
+\func foo (d : D) : Nat
+  | con1 n => n
+  | con2 d1 d2 => foo d1 Nat.+ foo d2
+  | con3 g => foo (g (foo (g 100)))
+-}
+
 -- 4. Определите рекурсор и элиминатор для List.
 
 \func List-elim {A : \Type}
