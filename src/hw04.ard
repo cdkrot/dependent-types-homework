@@ -5,7 +5,7 @@
 
 -- 1. Определите факториал через Nat-rec.
 
-\func fact (n : Nat) : Nat => Nat-rec Nat 1 (\lam newval rec => newval * rec) n
+\func fact (n : Nat) : Nat => Nat-rec Nat 1 (\lam newval rec => (suc newval) * rec) n
 
 -- 2. Докажите ассоциативность сложения для натуральных чисел через Nat-elim.
 
