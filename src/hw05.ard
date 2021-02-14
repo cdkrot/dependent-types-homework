@@ -1,8 +1,14 @@
 \import Utils
+\import lect03 (trans)
+\import lect05(filter, funExt)
 
 -- 1. Докажите, что (\lam x => not (not x)) = (\lam x => x).
 
-\func notNotId : (\lam x => not (not x)) = (\lam x => x) => {?}
+\func notNotId : (\lam x => not (not x)) = (\lam x => x)
+  => funExt (\lam _ => Bool) equality
+  \where \func equality (x : Bool) : not (not x) = x
+    | true => idp
+    | false => idp
 
 -- 2. Докажите, что fac не равен suc.
 
@@ -12,59 +18,137 @@
   | 0 => 1
   | suc n => suc n * fac n
 
-\func fac/=suc (p : fac = suc) : Empty => {?}
+\func fac/=suc (p : fac = suc) : Empty =>
+  \let p' => pmap (\lam func => func 1) p
+  \in transport tmp p' ()
+  \where \func tmp (n : Nat) : \Type
+  | 1 => \Sigma
+  | 0 => \Sigma
+  | (suc (suc z)) => Empty
+
 
 -- 3. Докажите, что left = right, не используя transport, coe и паттерн матчинг с idp.
 
-\func left=right : left = right => {?}
+\func left=right : left = right => path (\lam (i : I) => i)
 
 -- 4. Докажите, что если a = a' и b = b', то (a,b) = (a',b'), не используя transport, coe и паттерн матчинг с idp.
 
-\func pairEq {A B : \Type} {a a' : A} {b b' : B} (p : a = a') (q : b = b') : (a,b) = (a',b') => {?}
+\func pairEq {A B : \Type} {a a' : A} {b b' : B} (p : a = a') (q : b = b') : (a,b) = (a',b') =>
+  path (\lam (i : I) => (p @ i, q @ i))
 
 -- 5. Докажите, что если p = p', то p.1 = p'.1, не используя transport, coe и паттерн матчинг с idp.
 
-\func projEq {A : \Type} (B : A -> \Type) {p p' : \Sigma (x : A) (B x)} (t : p = p') : p.1 = p'.1 => {?}
+\func projEq {A : \Type} (B : A -> \Type) {p p' : \Sigma (x : A) (B x)} (t : p = p') : p.1 = p'.1
+  => path (\lam (i : I) => (t @ i).1)
 
 -- 6. Докажите pmap2, не используя transport, coe и паттерн матчинг с idp.
 
-\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' => {?}
+\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b'
+  => path (\lam (i : I) => f (p @ i) (q @ i))
 
 -- 7. Мы видели как определить transport через coe. Определите частный случай coe через transport.
 
-\func coe0 (A : I -> \Type) (a : A left) : A right => {?}
+-- \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a' \elim p
+
+\func coe0 (A : I -> \Type) (a : A left) : A right => transport A left=right a
 
 -- 8. Определите функцию B right -> B left.
 
-\func Itr' {B : I -> \Type} (b : B right) : B left => {?}
+\func Itr' {B : I -> \Type} (b : B right) : B left => transport B (sym left=right) b
 
 -- 9. Определите предикат принадлежности элемента списку.
 
-\data In {A : \Type} (a : A) (xs : List A)
+\data In {A : \Type} (a : A) (lst : List A) \with
+  | a, cons a' as => InHead (a = a')
+  | a, cons x xs => InTail (In a xs)
 
 -- Optional:
 -- 10. Докажите эквивалентность четырех различных определений LessOrEq: lessOrEq, lessOrEq', LessOrEq и LessOrEq'.
+
+---- TODO
 
 -- 11. Определите рефлексивное транзитивное замыкание отношения.
 --     То есть ReflTransClosure R -- это минимальное рефлексивное и транзитивное отношение, содержащее R.
 
 \data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A)
+  | RRel (R x y)
+  | ReflClos (x = y)
+  | TransClos (z : A) (ReflTransClosure R x z) (ReflTransClosure R z y)
 
 -- 12. Докажите, что если R уже рекфлексивно и транзитивно, то ReflTransClosure R эквивалентно R.
 
 \func ReflTransClosure-lem {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x) (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
   : \Pi (x y : A) -> R x y <-> ReflTransClosure R x y
-  => {?}
+  => \lam (x y : A) => (ltr R x y, rtl R refl trans x y)
+     \where \func ltr {A : \Type} (R : A -> A -> \Type) (x y : A) (rxy : R x y) : ReflTransClosure R x y
+                    => RRel rxy
+            \func rtl {A : \Type}
+                      (R : A -> A -> \Type)
+                      (refl : \Pi (x : A) -> R x x)
+                      (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
+                      (x y : A)
+                      (reflclos : ReflTransClosure R x y) : R x y \elim reflclos
+                      | RRel rxy => rxy
+                      | ReflClos x=y => transport (\lam xy => R x xy) x=y (refl x)
+                      | TransClos z r1 r2 => trans x z y (rtl R refl trans x z r1) (rtl R refl trans z y r2)
+
 
 -- 13. Определите предикат Sublist xs ys на списках, означающий "список xs является подсписком ys".
 
+\data SubList {A : \Type} (xlst ylst : List A) \with
+  | nil, _ => SubNil
+  | xlst, cons y ys => SubSkipCons (SubList xlst ys)
+  | cons x xs, cons y ys => SubCons (x = y) (SubList xs ys)
+
+
 -- 14. Докажите, что Sublist (filter p xs) xs для любых p и xs.
+
+\func sublistStm {A : \Type} (p : A -> Bool) (lst : List A) : SubList (filter p lst) lst
+  | p, nil => SubNil
+  | p, cons a as => \case p a \as pa \return
+                         SubList (\case pa \with {
+                            | true => cons a (filter p as)
+                            | false => filter p as
+                         }) (cons a as)
+                    \with {
+                       | true => SubCons idp (sublistStm p as)
+                       | false => SubSkipCons (sublistStm p as)
+                    }
 
 -- 15. Определите filter через if, а не через \case.
 --     Докажите для этой версии filter лемму filter-lem.
 
-\func filter' {A : \Type} (p : A -> Bool) (xs : List A) : List A => {?}
+\func filter' {A : \Type} (p : A -> Bool) (xs : List A) : List A
+  | p, nil => nil
+  | p, cons a xs => if (p a) (cons a (filter' p xs)) (filter' p xs)
 
-\func filter-lem {A : \Type} (p : A -> Bool) (xs : List A) : length (filter' p xs) Nat.<= length xs => {?}
+\func filter-lem {A : \Type} (p : A -> Bool) (lst : List A) : length (filter' p lst) Nat.<= length lst \elim lst
+  | nil => Nat.zero<=_
+  | cons a as => \case p a \as pa \return length (if pa (cons a (filter' p as)) (filter' p as)) Nat.<= suc (length as)
+                  \with {
+                    | true => Nat.suc<=suc (filter-lem p as)
+                    | false => <=-step-lem (filter-lem p as)
+                  }
+  \where \func <=-step-lem {x y : Nat} (leq : x Nat.<= y) : (x Nat.<= suc y) \elim x, y, leq
+    | 0, _, Nat.zero<=_ => Nat.zero<=_
+    | suc x, suc y, Nat.suc<=suc leq' => Nat.suc<=suc (<=-step-lem leq')
 
 -- 16. Закончите определение функции \func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x из лекции.
+
+\func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x
+  => \case \elim x, f true \as b, idp : f true = b, f false \as c, idp : f false = c \with {
+    | true, true, p, _, _ => pmap f (pmap f p *> p)
+    | false, _, _, false, p' => pmap f (pmap f p' *> p')
+
+    | true, false, p, true, p'
+       => \let z : f (f true) = true => transport (\lam x => f x = true) (sym p) p' \in pmap f z
+    | false, false, p, true, p'
+       => \let z : f (f false) = false => transport (\lam x => f x = false) (sym p') p \in pmap f z
+
+    | true, false, p, false, p'
+       => \let z : f (f true) = false => transport (\lam x => f x = false) (sym p) p'
+          \in trans (pmap f z) (trans p' (sym p))
+    | false, true, p, true, p'
+       => \let z : f (f false) = true => transport (\lam x => f x = true) (sym p') p
+          \in trans (pmap f z) (trans p (sym p'))
+  }
