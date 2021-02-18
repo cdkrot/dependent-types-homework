@@ -1,36 +1,82 @@
 \import Utils
 \import lect06
+\import lect05(funExt)
+\import Prelude
 \open Nat(+)
 
 -- 1. Определите функцию swap несколькими способами.
 
 -- При помощи \cowith и доступа к полям.
-\func swap {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap {A B : \Type} (p : Pair A B) : Pair B A \cowith
+  | fst_ => p.snd_
+  | snd_ => p.fst_
 
 -- При помощи \new и паттерн матчинга.
-\func swap' {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap' {A B : \Type} (p : Pair A B) : Pair B A
+  | (a, b) => \new Pair { | fst_ => b | snd_ => a }
 
 -- При помощи \new и доступа к полям.
-\func swap'' {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap'' {A B : \Type} (p : Pair A B) : Pair B A => \new Pair B A { | fst_ => p.snd_
+                                                                        | snd_ => p.fst_ }
 
 -- 2. Докажите, что swap (swap p) = p.
 
-\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p => {?}
+\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p
+  | (a, b) => idp
 
 -- 3. Докажите, что тип PosNat 0 пустой, а тип PosNat 1 нет.
 
-\func zero-isNotPos (p : PosNat 0) : Empty => {?}
+\func zero-isNotPos (p : PosNat 0) : Empty => p.p
 
-\func one-isPos : PosNat 1 => {?}
+\func one-isPos : PosNat 1 => \new PosNat { | n => 1 | p => () }
 
 -- 4. Определите \record, состоящий из пар взаимно простых натуральных чисел.
 --    Определите тип, состоящий из натуральных чисел, взаимно простых с 60.
+
+\import hw01 (gcd)
+\import lect02 (==)
+\record PairwisePrime (a : PosNat) (b : PosNat) (t : gcd a.n b.n = 1)
+
+\func pairwisePrimeWith60 : \Type => PairwisePrime { | a => \new PosNat { | n => 60 | p => () } }
 
 -- 5. Закончите определение класса монад. Этот класс должен содержать все монадные законы и реализовывать все поля из класса функторов.
 
 \class Monad \extends Functor
   | return {A : \Type} : A -> F A
   | \infixl 1 >>= {A B : \Type} : F A -> (A -> F B) -> F B
+  --
+  -- begin laws
+  --  return a >>= f  === f a
+  | left_id {A B : \Type} (a : A) (f : A -> F B) : ((return a >>= f) = f a)
+  -- (m >>= return) === m
+  | right_id {A : \Type} (m : F A) : ((m >>= return) = m)
+  --- (m >>= f) >>= g  === m >>= (\x -> f x >>= g)
+  | assoc {A B C : \Type} (m : F A) (f : A -> F B) (g : B -> F C) : (((m >>= f) >>= g) = (m >>= (\lam x => f x >>= g)))
+  --
+  -- now implement functor:
+  -- : F A -> F B
+  | fmap {A B : \Type} (f : A -> B) => (\lam (fa : F A) => fa >>= (\lam x => return (f x)))
+  -- : fmap (\lam (x : A) => x) y = y
+  | fmap-id {A : \Type} (y : F A) => right_id y
+  -- : fmap (\lam x => g (f x)) y = fmap g (fmap f y)
+  --  y >>= (\lam x => return (g (f x)))
+  --   vs
+  --  (y >>= (\lam x => return (f x))) >>= (\lam x => return (g x))
+  --
+  -- assoc gives: y >>= (\lam x => return (g (f x))) === (y >>= (\lam x => ((return (f x)) >>= (\lam x => return (g x)))
+  | fmap-comp {A B C : \Type} (f : A -> B) (g : B -> C) (y : F A)
+      => \let tmp : (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => return (f x) >>= (\lam x => return (g x))))
+              => assoc y (\lam x => return (f x)) (\lam x => return (g x))
+           |  tmp2 (x : A) : (return (f x) >>= (\lam (x : B) => return (g x))) = return (g (f x))
+              => left_id (f x) (\lam x => return (g x))
+           |  tmp2' : (\lam (x : A) => (return (f x) >>= (\lam (x : B) => return (g x)))) = (\lam (x : A) => return (g (f x)))
+              => funExt (\lam (x : A) => F C) tmp2
+           |  tmp' : (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => return (g (f x))))
+              => transport (\lam part => (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => part x)))
+                 tmp2' tmp
+         \in sym tmp'
+
+
 
 -- 6. Определите \instance Monad для Maybe.
 
