@@ -42,8 +42,8 @@
 -- 5. Закончите определение класса монад. Этот класс должен содержать все монадные законы и реализовывать все поля из класса функторов.
 
 \class Monad \extends Functor
-  | return {A : \Type} : A -> F A
-  | \infixl 1 >>= {A B : \Type} : F A -> (A -> F B) -> F B
+  | return {A : \Type} (x : A) : F A
+  | \infixl 1 >>= {A B : \Type} (x : F A) (y : A -> F B) : F B
   --
   -- begin laws
   --  return a >>= f  === f a
@@ -65,22 +65,37 @@
   --
   -- assoc gives: y >>= (\lam x => return (g (f x))) === (y >>= (\lam x => ((return (f x)) >>= (\lam x => return (g x)))
   | fmap-comp {A B C : \Type} (f : A -> B) (g : B -> C) (y : F A)
-      => \let tmp : (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => return (f x) >>= (\lam x => return (g x))))
-              => assoc y (\lam x => return (f x)) (\lam x => return (g x))
-           |  tmp2 (x : A) : (return (f x) >>= (\lam (x : B) => return (g x))) = return (g (f x))
-              => left_id (f x) (\lam x => return (g x))
-           |  tmp2' : (\lam (x : A) => (return (f x) >>= (\lam (x : B) => return (g x)))) = (\lam (x : A) => return (g (f x)))
-              => funExt (\lam (x : A) => F C) tmp2
-           |  tmp' : (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => return (g (f x))))
-              => transport (\lam part => (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => part x)))
-                 tmp2' tmp
-         \in sym tmp'
+  => \let tmp : (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => return (f x) >>= (\lam x => return (g x))))
+          => assoc y (\lam x => return (f x)) (\lam x => return (g x))
+          |  tmp2 (x : A) : (return (f x) >>= (\lam (x : B) => return (g x))) = return (g (f x))
+          => left_id (f x) (\lam x => return (g x))
+          |  tmp2' : (\lam (x : A) => (return (f x) >>= (\lam (x : B) => return (g x)))) = (\lam (x : A) => return (g (f x)))
+          => funExt (\lam (x : A) => F C) tmp2
+          |  tmp' : (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => return (g (f x))))
+          => transport (\lam part => (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => part x)))
+                tmp2' tmp
+     \in sym tmp'
 
 
 
 -- 6. Определите \instance Monad для Maybe.
 
-\instance MaybeMonad : Monad Maybe => {?}
+\instance MaybeMonad : Monad Maybe
+  | return {A : \Type}  (x : A) => just x
+  | \infixl 1 >>= {A B : \Type} (maybe : Maybe A) (f : A -> Maybe B) : Maybe B \elim maybe {
+    | nothing => nothing
+    | just a => f a
+  }
+  | left_id {A B : \Type} (a : A) (f : A -> Maybe B) => idp
+  | right_id {A : \Type} (m : Maybe A) : ((m >>= just) = m) \elim m {
+    | nothing => idp
+    | just a => idp
+  }
+  | assoc {A B C : \Type} (m : Maybe A) (f : A -> Maybe B) (g : B -> Maybe C)
+  : (((m >>= f) >>= g) = (m >>= (\lam x => f x >>= g))) \elim m {
+    | nothing => idp
+    | just a => idp
+  }
 
 -- 7. Определите \instance Monad для State и State'.
 
@@ -89,3 +104,41 @@
 
 \data State' (S A : \Type)
   | state' (S -> \Sigma S A)
+
+\func runState {S A : \Type} (st : State' S A) : (S -> \Sigma S A) \elim st
+  | state' fx => fx
+
+\func runStateLem {S A : \Type} (st : State' S A) : (state' (runState st) = st) \elim st
+  | state' fx => idp
+
+\func runState2 {S A : \Type} (st : State S A) : (S -> \Sigma S A) => st.state
+
+\func runState2Lem {S A : \Type} (st : State S A) : ((\new State S A { | state => runState2 st } = st)) => idp
+
+\instance  StatePMonad (S : \Type) : Monad (State' S)
+  | return {A : \Type} (x : A) => state' (\lam (s : S) => (s, x))
+  | >>= {A B : \Type} (x : State' S A) (y : A -> State' S B) => state' (\lam (s : S) => \let (s', x') => runState x s \in runState (y x') s')
+  | left_id {A B : \Type} (a : A) (f : A -> State' S B) => runStateLem (f a)
+  | right_id {A : \Type} (m : State' S A) => runStateLem m
+  | assoc {A B C : \Type} (m : State' S A) (f : A -> State' S B) (g : B -> State' S C) =>
+    \let tmp (s : S) :
+           ((\let  s_x => runState (f (runState m s).2) (runState m s).1 \in runState (g  s_x.2)  s_x.1
+           =
+           (\let  s_x => runState (f (runState m s).2) (runState m s).1 \in runState (g  s_x.2)  s_x.1)))
+       => idp
+    \in pmap state' (funExt (\lam (s : S) => \Sigma S C) tmp)
+
+\instance StateMonad (S : \Type) : Monad (\lam (A : \Type) => State S A)
+  | return {A : \Type} (x : A) => \new State { | state s => (s, x) }
+  |  >>= {A B : \Type} (x : State S A) (y : A -> State S B) => \new State {| state s => \let (s',x') => x.state s
+                                                     | st : State S B => y x'
+                                                  \in st.state s' }
+  | left_id {A B : \Type} (a : A) (f : A -> State S B) => runState2Lem (f a)
+  | right_id {A : \Type} (m : State S A) => runState2Lem m
+  | assoc {A B C : \Type} (m : State S A) (f : A -> State S B) (g : B -> State S C) =>
+    \let tmp (s : S) :
+    ((\let  s_x => runState2 (f (runState2 m s).2) (runState2 m s).1 \in runState2 (g  s_x.2)  s_x.1
+      =
+    (\let  s_x => runState2 (f (runState2 m s).2) (runState2 m s).1 \in runState2 (g  s_x.2)  s_x.1)))
+         => idp
+    \in pmap (\lam x => \new State S C { | state => x }) (funExt (\lam (s : S) => \Sigma S C) tmp)
