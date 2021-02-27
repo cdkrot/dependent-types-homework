@@ -1,4 +1,10 @@
+\import Function.Meta
+\import Meta
+\import Paths.Meta
 \import Utils
+\import hw02 (tail)
+\import lect03 (trans)
+\import lect05 (funExt)
 \import lect06 (Functor)
 \import lect07
 \open Nat(+,*)
@@ -8,24 +14,133 @@
 --    * Все элементы filter p xs удовлетворяют предикату p
 --    * Любой подсписок xs с тем же свойством является подсписком filter p xs
 
+\func filter {A : \Type} (f : A -> Bool) (lst : List A) : List A
+  | f, nil => nil
+  | f, cons a lst => \case f a \with {
+    | true => cons a (filter f lst)
+    | false => filter f lst
+  }
+
+\data SubList {A : \Type} (xlst ylst : List A) \with
+  | nil, _ => SubNil
+  | xlst, cons y ys => SubSkipCons (SubList xlst ys)
+  | cons x xs, cons y ys => SubCons (x = y) (SubList xs ys)
+
+\func filterIsSublist {A : \Type} (f : A -> Bool) (lst : List A) : SubList (filter f lst) lst
+  | f, nil => SubNil
+  | f, cons a lst => mcases \with {
+    | true => SubCons idp (filterIsSublist f lst)
+    | false => SubSkipCons (filterIsSublist f lst)
+  }
+
+\data ListSatisfiesPredicate {A : \Type} (f : A -> Bool) (lst : List A) \with
+  | _, nil => NilSatisfy
+  | f, cons x xs => ConsSatisfy (T (f x)) (ListSatisfiesPredicate f xs)
+
+\func filterRespectsPredicate {A : \Type} (f : A -> Bool) (lst : List A) : ListSatisfiesPredicate f (filter f lst)
+  | f, nil => NilSatisfy
+  | f, cons a lst => \case f a \as fa, idp : f a = fa \return
+      ListSatisfiesPredicate f (\case fa \with {
+        | true => cons a (filter f lst)
+        | false => filter f lst
+      })
+  \with {
+     | true, fa=fa => ConsSatisfy (rewrite fa=fa ()) (filterRespectsPredicate f lst)
+     | false, fa=fa => filterRespectsPredicate f lst
+  }
+
+\func Tabsurd {Res : \Type} {x : Bool} (t : T x) (eq : x = false) : Res
+  | {Res}, {true}, t, ()
+
+\func filterIsSuperset {A : \Type} (f : A -> Bool) (lst sublst : List A) (satisfy : ListSatisfiesPredicate f sublst)
+  (issublist : SubList sublst lst) : SubList sublst (filter f lst)
+  | f, _, nil, _, _ => SubNil
+  | f, cons a lst', cons a' sublst', ConsSatisfy t satisfy', SubSkipCons issublist' =>
+    \let recurs => filterIsSuperset f lst' (cons a' sublst') (ConsSatisfy t satisfy') issublist'
+    \in \case (f a) \as fa, idp : f a = fa \return SubList (cons a' sublst') (\case fa \with {
+      | true => cons a (filter f lst')  | false => filter f lst'
+    })
+    \with {
+      | true, fa=fa => SubSkipCons recurs
+      | false, fa=fa => recurs
+    }
+  | f, cons a lst', cons a' sublst', ConsSatisfy t satisfy', SubCons p issublist' =>
+    \let recurs => filterIsSuperset f lst' sublst' satisfy' issublist'
+    \in \case (f a) \as fa, idp : f a = fa \return SubList (cons a' sublst') (\case fa \with {
+      | true => cons a (filter f lst') | false => filter f lst'
+    })
+    \with {
+    | true, fa=fa => SubCons p recurs
+    | false, fa=fa => Tabsurd (rewrite (sym p) t) fa=fa
+  }
+
 -- 2. Докажите, что предикат isEven разрешим.
 
 \func isEven (n : Nat) => \Sigma (k : Nat) (n = 2 * k)
 
-\func isEven-dec : DecPred isEven => {?}
+\func isEven-dec : DecPred isEven => implement_isEven
+\where \func implement_isEven (n : Nat) : Decide (isEven n)
+  | 0 => yes (0, idp)
+  | 1 => no (\lam i => help i.1 i.2)
+  | suc (suc n) => \case implement_isEven n \with {
+    | yes (k, eq) => yes (suc k, pmap (\lam x => x + 2) eq)
+    | no noo => no (\lam cert => noo (pred cert.1, pmap (\lam x => pred $ pred $ x) cert.2 `trans` help2 cert.1))
+  }
+  \where {
+    \func help (k : Nat) (eq : 1 = 2 * k) : Empty
+      | 0, ()
+    \func help2 (n : Nat) : (pred (pred (2 * n)) = 2 * pred n) \elim n
+      | 0 => idp
+      | suc n => idp
 
 -- 3. Докажите, что если равенство элементов A разрешимо, то и равенство элементов List A тоже разрешимо.
 
+\func nil/=cons {A : \Type} {x : A} {xs : List A} (lie : nil = cons x xs) : Empty
+
 \instance ListEq {A : \Type} (dec : Eq A) : Eq (List A)
-  | decideEq => {?}
+  | decideEq (a a' : List A) => helper dec a a'
+\where \func helper {A : \Type} (dec : Eq A) (a a' : List A) : Decide (a = a') \elim a, a'
+  | nil, nil => yes (idp)
+  | nil, cons a1 _ => no (nil/=cons)
+  | cons a1 _, nil => no (\lam lie => nil/=cons (sym lie))
+  | cons a1 l1, cons a2 l2 => \case decideEq a1 a2 \with {
+    | yes yes' => \case helper dec l1 l2 \with {
+      | yes yes'' => yes (rewriteF {2} yes' $ rewriteF {2} yes'' (idp : (cons a1 l1 = cons a1 l1)))
+      | no no' => no (\lam (equality : cons a1 l1 = cons a2 l2) => no' $ pmap tail equality)
+    }
+    | no no' => no (\lam (equality : cons a1 l1 = cons a2 l2) => no' $ pmap (headDef a1) equality)
+  }
 
 -- 4. Докажите, что функции FromBoolToDec и FromDecToBool взаимно обратны.
 
-\func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p => {?}
+\func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p  =>
+  \let tmp (a : A) : (\case ((\lam a => T (p a), \lam a => \case p a \as pa \return Decide (T pa) \with {
+    | true => yes ()
+    | false => no absurd
+  }) : \Sigma (P : A -> \Type) (DecPred P) ).2 a \with { | yes _ => true | no _ => false }) = p a =>
+         \case p a \as pa, idp : (p a = pa) \return
+             (\case \case pa \as pa' \return Decide (T pa') \with { -- Пришлось всё делать явно, иначе в вычислениях
+               | true => yes ()                                    -- типа результата происходит ошибка типизации)))
+               | false => no (absurd)
+             } \with {
+               | yes _ => true
+               | no _ => false
+             }) = pa
+         \with {
+           | true, eq => idp
+           | false, eq => idp
+         }
+\in funExt (\lam (a : A) => Bool) (\lam a => tmp a)
 
--- Мы не можем доказать, что FromBoolToDec (FromDecToBool P) = P, но мы можем доказать более слабое утверждение: эти предикаты логически эквивалентны.
+    -- Мы не можем доказать, что FromBoolToDec (FromDecToBool P) = P, но мы можем доказать более слабое утверждение: эти предикаты логически эквивалентны.
 -- Для этого введем эквивалентность предикатов.
 
 \func dbd {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P))
-  : \Pi (x : A) -> (FromBoolToDec (FromDecToBool P)).1 x <-> P.1 x
-  => {?}
+  : \Pi (x : A) -> (FromBoolToDec (FromDecToBool P)).1 x <-> P.1 x => \lam (x : A) => helper P x
+\where \func helper  {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P)) (x : A) :
+  (T (\case P.2 x \return Bool \with { | yes _ => true | no _ => false })) <-> P.1 x
+     => mcases \with {
+       | yes yes' => (\lam _ => yes', \lam _ => ())
+       | no no' => (\lam emp => absurd emp, no')
+     }
+  }

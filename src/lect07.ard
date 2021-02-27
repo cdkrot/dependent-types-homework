@@ -242,10 +242,12 @@
 -- Эти функции почти взаимно обратны. Это будет верно, если правильно сформулировать это утверждение.
 \func FromBoolToDec {A : \Type} (p : A -> Bool)
   : \Sigma (P : A -> \Type) (DecPred P)
-  => (\lam a => T (p a), \lam a => mcases {T} \with {
+  => (\lam a => T (p a), \lam a => \case p a \as pa \return Decide (T pa) \with {
     | true => yes ()
     | false => no absurd
   })
+
+  -- \Pi (a : A) -> Decide (P a)
 
 \func FromDecToBool {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P))
   : A -> Bool
