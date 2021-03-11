@@ -1,4 +1,7 @@
+\import Meta
+\import Paths.Meta
 \import Utils
+\import lect01 ($)
 \import lect03 \hiding (Vec,vnil,vcons)
 \open Nat(+,*)
 
@@ -195,4 +198,15 @@
 
            -- Expected type: (m + k) * n + (m + k) = m * n + m + (k * n + k)
 
-\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
+\func *-multiply-1 (n : Nat) : (1 * n = n)
+  | 0 => idp
+  | suc n => pmap suc (*-multiply-1 n)
+
+\func *-sym (n m : Nat) : n * m = m * n
+  | 0, 0 => idp
+  | 0, suc m => *-sym 0 m
+  | suc n, m => \let tmp => rdistr m n 1 \in rewriteF (*-sym n m) (rewriteF (*-multiply-1 m) tmp)
+
+\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k =>
+  rewriteF (*-sym (m + k) n) (rewriteF (*-sym k n) (rewriteF (*-sym m n) (rdistr n m k)))
+

@@ -1,19 +1,131 @@
 \import Data.List
+\import Data.Or
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
 \import Order.LinearOrder
-\import Utils (Maybe, just, maybe, nothing)
+\import Paths
+\import Paths.Meta
+\import Utils (Maybe, just, maybe, nothing, sym)
+\import hw03 (*-multiply-1, ldistr, rdistr)
+\import hw07
+\import lect05 (funExt)
 \import lect07(Decide)
 \import lect08
 \open LinearOrder
+\open Nat
+\open Decide
 
 -- 1. Докажите, что Perm l1 l2 тогда и только тогда, когда Insertion.sort l1 = Insertion.sort l2.
 
+\func permPreservesSort {A : Dec} {l1 l2 : List A} (p : Perm l1 l2) : Insertion.sort l1 = Insertion.sort l2 \elim l1, l2, p
+  | nil, nil, perm-nil => idp
+  | :: x xs, :: y ys, perm-:: p p1 => \let rec => permPreservesSort p1
+                                      \in rewrite p $ rewrite rec idp
+  | :: x (:: x' xs), :: y (:: y' ys), perm-swap eq1 eq2 eq3
+                                   => rewrite eq1 $ rewrite eq2
+                                                  $ rewrite eq3
+                                                  (Insertion.sort-perm.insert-comm y' y (Insertion.sort ys))
+  | xs, ys, perm-trans {zs} xs_zs zs_ys => (permPreservesSort xs_zs <* permPreservesSort zs_ys)
+
+\func permSym {A : \Type} {a b : List A} (p : Perm a b) : Perm b a \elim a, b, p
+  | nil, nil, perm-nil => perm-nil
+  | :: x xs, :: y ys, perm-:: x=y xs_ys => perm-:: (sym x=y) (permSym xs_ys)
+  | :: x (:: y xs), :: y' (:: x' xs'), perm-swap x=x' y=y' xs=xs' => perm-swap (sym y=y') (sym x=x') (sym xs=xs')
+  | xs, ys, perm-trans {zs} xs_zs zs_ys => perm-trans (permSym zs_ys) (permSym xs_zs)
+
+\func nil/=cons {A : \Type} {x : A} {xs : List A} (lie : nil = (:: x xs)) : Empty
+
+\func insertIsNotEmpty {A : Dec} {a : A} {l : List A} (eq : nil = Insertion.sort.insert a l) : Empty \elim a, l, eq
+  | a, :: a1 l, eq => \case dec<_<= a1 a \as smth, idp : (dec<_<= a1 a = smth), eq \with {
+    | inl a2, id, eq => \let tmp => (rewrite id eq) \in nil/=cons tmp
+    | inr b, id, eq => \let tmp => (rewrite id eq) \in nil/=cons tmp
+  }
+
+\func sameSortImpliesPermutation {A : Dec} {l1 l2 : List A} (eq : Insertion.sort l1 = Insertion.sort l2) : Perm l1 l2 \elim l1, l2
+  | nil, nil => perm-nil
+  | nil, :: a l2 => absurd $ insertIsNotEmpty eq
+  | :: a l, nil => absurd $ insertIsNotEmpty (sym eq)
+  | :: a1 l1, :: a2 l2 => \let eq_tmp1 => rewrite eq $ permSym $ Insertion.sort-perm.insert-perm a1 (Insertion.sort l1)
+                            |  eq_tmp2 => Insertion.sort-perm.insert-perm a2 (Insertion.sort l2)
+                            |  eq3 => perm-trans eq_tmp2 eq_tmp1
+                            |  sort_a1_l1 => perm-:: (idp : a1 = a1) (Insertion.sort-perm l1)
+                            |  sort_a2_l2 => perm-:: (idp : a2 = a2) (Insertion.sort-perm l2)
+                          \in perm-trans (perm-trans sort_a1_l1 (permSym eq3)) (permSym sort_a2_l2)
+
 -- 2. Докажите, что спецификация "результат является перестановкой входа и отсортирован" является полной для функции sort.
 
+\func insertLemma {A : Dec} (l : List A) (x : A) (fact : x <= headDef x l) : (:: x l = Insertion.sort.insert x l) \elim l
+  | nil => idp
+  | :: a l => mcases \with {
+    | inl x<a => contradiction
+    | inr a<=x => idp
+  }
+
+\func obviousHelper {A : Dec} {x : A} {lst : List A} (s : Sorted (x :: lst)) : (x :: lst = Insertion.sort.insert x lst) \elim lst, s
+  | lst, sorted-cons _x s => insertLemma lst x _x
+
+\func completenessHelper {A : Dec} (x y : A) (lst : List A) (s : Sorted (x :: lst)) (y<=x : y <= x) : (y :: x :: lst = Insertion.sort.insert x (Insertion.sort.insert y lst))
+  =>  \let fact => Insertion.sort-perm.insert-comm x y lst
+           | fact2 => obviousHelper s
+           | tmp : (y :: x :: lst = Insertion.sort.insert y (x :: lst)) => insertLemma (x :: lst) y (y<=x)
+           | tmp2 : (Insertion.sort.insert y (x :: lst) = Insertion.sort.insert y (Insertion.sort.insert x lst)) => pmap (\lam t => Insertion.sort.insert y t) fact2
+      \in tmp <* tmp2 <* (sym fact)
+
+
+\func sortedIsEqualSort {A : Dec} {lst : List A} (s : Sorted lst) : (lst = Insertion.sort lst) \elim lst, s
+  | nil, sorted-nil => idp
+  | :: x xs, sorted-cons _x s => \let fact => sortedIsEqualSort s
+                                 \in rewriteF {2} fact (insertLemma xs x _x)
+
+\func completeness' {A : Dec} (l : List A) (sort_l : List A) (p : Perm l sort_l) (s : Sorted sort_l) : sort_l = Insertion.sort l \elim l, sort_l, p, s
+  | nil, nil, perm-nil, sorted-nil => idp
+  | :: x xs, :: x' xs', perm-:: x=x' xs_xs', sorted-cons x_atmost_head s => \let fact => completeness' xs xs' xs_xs' s
+                                                                                 | fact2 => insertLemma xs' x' x_atmost_head
+                                                                            \in rewriteF {2} fact  (rewriteF {2} (sym x=x')  fact2)
+  | :: x (:: y xs), :: y' (:: x' ys), perm-swap x=x' y=y' xs=ys, sorted-cons (y'<=x') s =>
+    \let res => completenessHelper x y xs
+        (rewriteF (sym xs=ys) (rewriteF (sym x=x') s)) (rewriteF (sym y=y') (rewriteF (sym x=x') (y'<=x')))
+         | tmp => rewriteF {1} xs=ys (rewriteF {1} y=y' (rewriteF {1} x=x' res))
+         | lm => sortedIsEqualSort $ rewriteF (sym xs=ys) (Sorted.tailSorted (x'  :: nil) ys s)
+    \in rewriteF lm tmp
+  | xs, ys, perm-trans {zs} xs_zs zs_ys, s => \let fact1 => completeness' zs ys zs_ys s
+                                                |  fact2 => permPreservesSort xs_zs
+                                              \in fact1 <* (sym fact2)
+
+-- | nil, nil, perm-nil, _ => idp
+  -- | xs, ys, perm-trans {zs} xs_zs zs_ys, s => \let fact1 => completeness' zs ys zs_ys s
+--                                              \in {?}
+
+
+--   | :: x (:: x' xs), :: y (:: y' ys), perm-swap p p1 p2 => {?}
+
 \func completeness {A : Dec} (sort : List A -> List A) (l : List A) (p : Perm l (sort l)) (s : Sorted (sort l)) : sort l = Insertion.sort l
-  => {?}
+  => completeness' l (sort l) p s
 
 -- 3. Определите факториал через хвостовую рекурсию.
 --    Докажите, что он равен обычному определению факториала.
+
+\func fact (n : Nat) : Nat
+  | 0 => 1
+  | suc n => (fact n) * (suc n)
+
+\func fact' (n : Nat) => factTail n 1
+\where \func factTail (n : Nat) (s : Nat) : Nat \elim n
+  | 0 => s
+  | suc n => factTail n ((suc n) * s)
+
+\func *-ass (a : Nat) (b : Nat) (c : Nat) : ((a * b) * c = a * (b * c))
+  | _, _, 0 => idp
+  | a, b, suc c => \let tmp => sym $ ldistr a (b * c) b \in rewriteF (sym $ *-ass a b c) tmp
+
+\func fact_is_same (n : Nat) : fact' n = fact n => factTailLemma n 1
+  \where \func factTailLemma (n : Nat) (s : Nat) : (fact'.factTail n s = (fact n) * s) \elim n
+    | 0 => sym $ *-multiply-1 s
+    | suc n => rewriteF (sym $ *-ass (fact n) (suc n) s) $ factTailLemma n ((suc n) * s)
+
+\func fact_is_same_func : fact' = fact => funExt (\lam _ => Nat) fact_is_same
 
 -- 4. Закончите определение \instance Monad для Term.
 
@@ -29,16 +141,43 @@
   | >>=-left {A B : \Type} (a : A) (k : A -> F B) : (return a >>= k) = k a
   | >>=-right {A : \Type} (m : F A) : (m >>= return) = m
   | >>=-assoc {A B C : \Type} (m : F A) (k : A -> F B) (l : B -> F C) : ((m >>= k) >>= l) = (m >>= (\lam a => k a >>= l))
-  | fmap => {?}
-  | fmap-id => {?}
-  | fmap-comp => {?}
+  | fmap {A B : \Type} (f : A -> B) => (\lam (fa : F A) => fa >>= (\lam x => return (f x)))
+  -- : fmap (\lam (x : A) => x) y = y
+  | fmap-id {A : \Type} (y : F A) => >>=-right y
+  -- : fmap (\lam x => g (f x)) y = fmap g (fmap f y)
+  --  y >>= (\lam x => return (g (f x)))
+  --   vs
+  --  (y >>= (\lam x => return (f x))) >>= (\lam x => return (g x))
+  --
+  -- assoc gives: y >>= (\lam x => return (g (f x))) === (y >>= (\lam x => ((return (f x)) >>= (\lam x => return (g x)))
+  | fmap-comp {A B C : \Type} (f : A -> B) (g : B -> C) (y : F A)
+  => \let tmp : (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => return (f x) >>= (\lam x => return (g x))))
+          => >>=-assoc y (\lam x => return (f x)) (\lam x => return (g x))
+          |  tmp2 (x : A) : (return (f x) >>= (\lam (x : B) => return (g x))) = return (g (f x))
+          => >>=-left (f x) (\lam x => return (g x))
+          |  tmp2' : (\lam (x : A) => (return (f x) >>= (\lam (x : B) => return (g x)))) = (\lam (x : A) => return (g (f x)))
+          => funExt (\lam (x : A) => F C) tmp2
+          |  tmp' : (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => return (g (f x))))
+          => transport (\lam part => (y >>= (\lam x => return (f x)) >>= (\lam x => return (g x))) = (y >>= (\lam x => part x)))
+                tmp2' tmp
+     \in sym tmp'
 
 \instance MaybeMonad : Monad Maybe
   | return => just
-  | >>= m k => maybe nothing k m
-  | >>=-left => {?}
-  | >>=-right => {?}
-  | >>=-assoc => {?}
+  |  >>= {A B : \Type} (maybe : Maybe A) (f : A -> Maybe B) : Maybe B \elim maybe {
+    | nothing => nothing
+    | just a => f a
+  }
+  | >>=-left {A B : \Type} (a : A) (f : A -> Maybe B) => idp
+  | >>=-right {A : \Type} (m : Maybe A) : ((m >>= just ) = m) \elim m {
+    | nothing => idp
+    | just a => idp
+  }
+  | >>=-assoc {A B C : \Type} (m : Maybe A) (f : A -> Maybe B) (g : B -> Maybe C)
+  : (((m >>= f) >>= g) = (m >>= (\lam x => f x >>= g))) \elim m {
+    | nothing => idp
+    | just a => idp
+  }
 
 \func termMap {A B : \Type} (f : A -> B) (t : Term A) : Term B \elim t
   | var v => var (f v)
@@ -66,38 +205,141 @@
     | app t1 t2 => app (t1 >>= k) (t2 >>= k)
     | lam t => lam (t >>= liftM k)
   }
-  | >>=-left => {?}
-  | >>=-right => {?}
-  | >>=-assoc => {?}
+  | >>=-left {A B : \Type} (a : A) (k : A -> Term B) : (var a >>= k) = k a => idp
+  | >>=-right {A : \Type} (m : Term A) : ((m >>= var) = m) \elim m {
+    | var v => idp
+    | unit => idp
+    | app m1 m2 => \let tmp1 => >>=-right m1
+                        | tmp2 => >>=-right m2
+                   \in rewriteF {1} (sym tmp2)
+          (rewriteF {1} (sym tmp1) (idp : (app m1 m2 = app m1 m2)))
+    | lam m => \let  helper {A : \Type} (m : Term (Maybe A)) : ((m >>= (liftM var)) = m) => {?}
+               \in pmap lam (helper m)
+  }
+  | >>=-assoc {A B C : \Type} (m : Term A) (f : A -> Term B) (g : B -> Term C)
+  : (((m >>= f) >>= g) = (m >>= (\lam x => f x >>= g))) \elim m {
+    | var v => idp
+    | unit => idp
+    | app m1 m2 => \let tmp1 => >>=-assoc m1 f g
+                        | tmp2 => >>=-assoc m2 f g
+                   \in rewriteF {2} tmp2 (rewriteF {2} tmp1 (idp : (app (m1 >>= f >>= g) (m2 >>= f >>= g) = app (m1 >>= f >>= g) (m2 >>= f >>= g))))
+    | lam m => {?}
+  }
+-- TODO: 4
+
 
 -- 5. Определите отношение многошаговой редукции на Term.
 
-\func Red {V : \Type} (t s : Term V) : \Type => {?}
+\data Red {V : \Type} (t s : Term V)
+  | zerored (t = s)
+  | multired {mid : Term V} (Red1 t mid) (Red mid s)
 
 -- 6. Стратегия редукции -- это функция, которая каждому терму сопоставляет либо некоторый терм, к которому он редуцируется за 1 шаг, либо доказательство, что таких термов нет.
 --    Определите любую стратегию редукции.
 
-\func strategy {V : \Type} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) => {?}
+\func strategy {V : \Type} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) \elim t
+  | var v => no (\lam pair => cases pair.2 \with {})
+  | unit => no (\lam pair => cases pair.2 \with {})
+  | app (lam f) x => yes ((f TermMonad.>>= (maybe x var)), beta f idp idp)
+  | app (unit) x => \let result => strategy x
+                    \in cases (result) \with {
+                        | yes y => yes (app (unit) y.1, appRight idp y.2)
+                        | no n => no (\lam arg => cases (arg.1, arg.2) \with {
+                          | app s1 s2, appLeft x1 p => cases (x1) \with {}
+                          | app s1 s2, appRight p x1 => n (s2, x1)
+                          | s, beta f p p1 => contradiction
+                        } )
+                    }
+  | app (var v) x => \let result => strategy x ---- actually, the same code as one above
+                     \in cases (result) \with {
+                        | yes y => yes (app (var v) y.1, appRight idp y.2)
+                        | no n => no (\lam arg => cases (arg.1, arg.2) \with {
+                          | app s1 s2, appLeft x1 p => cases (x1) \with {}
+                          | app s1 s2, appRight p x1 => n (s2, x1)
+                          | s, beta f p p1 => contradiction
+                        })
+                     }
+  | app (app a b) x => \let result_x => strategy x
+                          | result_ab => strategy (app a b)
+                       \in cases (result_x, result_ab) \with {
+                          | yes y, _ => yes (app (app a b) y.1, appRight idp y.2)
+                          | _, yes y => yes (app y.1 x, appLeft y.2 idp)
+                          | no n1, no n2 => no (\lam arg => cases (arg.1, arg.2) \with {
+                            | app s1 s2, appLeft x1 p => n2 (s1, x1)
+                            | app s1 s2, appRight p x1 => n1 (s2, x1)
+                            | s, beta f p p1 => contradiction
+                          })
+                      }
+  | lam t => \let result => strategy t
+              \in cases (result) \with {
+                | yes y => yes (lam y.1, lamRed y.2)
+                | no n => no (\lam arg => cases (arg.1, arg.2) \with {
+                  | lam s, lamRed x => n (s, x)
+                })
+              }
 
 -- 7. Докажите, что подтермы достижимого терма достижимы.
 
-\func appAccLeft {V : \Type} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t
-  => {?}
+\func remAcc {A : \Type} {red : A -> A -> \Type} {a : A} (f : Acc red a) (a' : A) (r : red a a') : Acc red a' \elim f
+  | acc f => f a' r
 
-\func appAccRight {V : \Type} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t
-  => {?}
+\func appAccLeft {V : \Type} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t
+  => acc (newf a)
+  \where \func newf {V : \Type} {t s : Term V} (f : Acc Red1 (app t s))
+                  (aa : Term V) (r : Red1 t aa) : Acc Red1 aa \elim f
+  | acc f => acc (newf (f (app aa s) (appLeft r idp)))
+
+
+\func appAccRight {V : \Type} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 s
+  => acc (newf a)
+  \where \func newf {V : \Type} {t s : Term V} (f : Acc Red1 (app t s))
+                    (aa : Term V) (r : Red1 s aa) : Acc Red1 aa \elim f
+    | acc f => acc (newf (f (app t aa) (appRight idp r)))
 
 \func subLamAcc {V : \Type} {t : Term (Maybe V)} (a : Acc Red1 (lam t)) : Acc Red1 t
-  => {?}
+  => acc (newf a)
+  \where \func newf {V : \Type} {t : Term (Maybe V)} (f : Acc Red1 (lam t))
+                    (aa : Term (Maybe V)) (r : Red1 t aa) : Acc Red1 aa \elim f
+    | acc f => acc (newf (f (lam aa) (lamRed r)))
 
 -- 8. Докажите следующую обобщенную лемму о подстановке и выведите из нее обычную версию: если Г, x : A |- b : B и Г |- a : A, то Г |- b[a/x] : B.
 
-\func substLem {U V : \Type} (ctx : U -> Type) (b : Term U) (B : Type) (h : hasType ctx b B)
-               (ctx' : V -> Type) (a : U -> Term V) (h' : \Pi (u : U) -> hasType ctx' (a u) (ctx u))
-  : hasType ctx' (b >>= a) B
-  => {?}
+\func boring {V : \Type} (fa : Term V) : ((termMap just fa) = (fa >>= (\lam x => var (just x)))) => {?}
 
-\func substLem1 => {?}
+\func substLem {U V : \Type} (ctx : U -> Type) {b : Term U} {B : Type} (h : hasType ctx b B)
+               (ctx' : V -> Type) (f : U -> Term V) (h' : \Pi (u : U) -> hasType ctx' (f u) (ctx u))
+  : hasType ctx' (b >>= f) B \elim b, B, h
+  | unit, Unit, unitType => unitType
+  | var v, T, varType p => \let tmp : hasType {U} ctx (var v) T => varType p
+                              | tmp2 => h' v
+                           \in rewriteF p tmp2
+  -- ctx |- y:A, ctx |- x:A->B, ctx |- (app x y) : B
+  -- want: ctx' |- (app x y >>= a) : B
+  | app x y, B, appType {A} y_A x_A_B => \let x_tp => substLem ctx x_A_B ctx' f h'
+                                            | y_tp => substLem ctx y_A ctx' f h'
+                                         \in appType y_tp x_tp
+  | lam t, Arr A B, lamType t_B => lamType $ substLem (maybe A ctx) t_B (maybe A ctx') (liftM f) (\lam u => cases (u) \with {
+                                            | nothing => varType idp
+                                            | just a => transformHelper A (h' a)
+                                        })
+
+\where \func transformHelper {V : \Type} {ctx : V -> Type} {tp_a : Type} {fa : Term V}
+                             (A : Type) (h : hasType ctx fa tp_a) : hasType (maybe A ctx) (termMap just fa) tp_a \elim ctx, tp_a, fa, h
+  -- => rewrite (boring fa) $ substLem ctx h (maybe A ctx) (\lam x => var (just x)) (\lam u => varType idp)
+  | ctx, Unit, unit, unitType => unitType
+  | ctx, T, var v, varType p => varType p
+  | ctx, B, app a b, appType {AA} h1 h2 => \let t1 => transformHelper A h1
+                                             | t2 => transformHelper A h2
+                                           \in appType t1 t2
+  | ctx, Arr AA B, lam t, lamType h => \let t1 => transformHelper A h
+               \in lamType {?}
+
+\func substLem1 {V : \Type} (ctx : V -> Type) {a : Term V} {b : Term (Maybe V)} {A B : Type} (h : hasType (maybe A ctx) b B) (h' : hasType ctx a A)
+  : (hasType ctx (b >>= (maybe a var)) B)
+=> substLem (maybe A ctx) h ctx (maybe a var) (\lam mb => cases (mb) \with {
+  | nothing => h'
+  | just a1 => varType idp
+}) 
 
 -- 9. Докажите, что если Г |- a : A и Red a a', то Г |- a' : A
 

@@ -82,7 +82,7 @@
 
 \instance MaybeMonad : Monad Maybe
   | return {A : \Type}  (x : A) => just x
-  | \infixl 1 >>= {A B : \Type} (maybe : Maybe A) (f : A -> Maybe B) : Maybe B \elim maybe {
+  |  >>= {A B : \Type} (maybe : Maybe A) (f : A -> Maybe B) : Maybe B \elim maybe {
     | nothing => nothing
     | just a => f a
   }
