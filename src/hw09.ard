@@ -4,6 +4,7 @@
 \import Meta
 \import Paths (<*)
 \import Paths.Meta
+\import lect05 (funExt)
 \import lect07
 \import lect09
 \import Utils \hiding (<=-refl)
@@ -144,23 +145,85 @@
   | inr B
 
 \func or-isSet {A B : \Type} (p : isSet A) (q : isSet B) : isSet (Or A B) => impl p q
-\where \func impl {A B : \Type} (p : isSet A) (q : isSet B) (x y : Or A B) (p q : x = y) : (p = q)
-  | p, q, inl a, inl a1, p1, q1 => {?}
-  | p, q, inr b, inr b1, p1, q1 => {?}
+\where {
+  \func impl {A B : \Type} (p : isSet A) (q : isSet B) (x y : Or A B) (p q : x = y) : (p = q)
+    | p, q, inl a, inl a1, p1, q1 => (retract-isProp {inl a = inl a1} {a = a1} (p a a1)
+        (\lam t => rem_inl t) (\lam t => pmap inl t) (\lam q => {?})) p1 q1
+    | p, q, inr b, inr b1, p1, q1 => {?}
+
+  \func rem_inl {A B : \Type} {a a1 : A} (eq : (inl a : Or A B) = (inl a1 : Or A B)) : (a = a1)
+    => pmap (\lam x => \case x \with {
+      | inl x => x
+      | inr b => a
+    }) eq
+
+  \func help {A B : \Type} {a a1 : A}
+    (eq : inl {A} {B} a = inl {A} {B} a1)
+    (eq' : a = a1)
+    (fact : eq' = rem_inl eq)
+    : (pmap inl eq' = eq)
+    | eq, eq', idp => sym (mcases \with {
+      | inl x => {?}
+      | inr b => {?}
+    })
+
+  \func help' {A B : \Type} {a a1 : A}
+             (eq : inl {A} {B} a = inl {A} {B} a1)
+    : (pmap inl (rem_inl eq) = eq)
+    | {A}, {B}, {a}, {a1}, eq => \case inl {A} {B} a \as inl_a, inl {A} {B} a1 \as inl_a1,
+                                       idp : inl_a = inl {A} {B} a, idp : inl_a1 = inl {A} {B} a1
+
+    \with {
+      | inl_a, inl_a1, p, p1 => \let eq_ => (rewrite (sym p) eq)
+                    \in \case \elim inl_a, eq_, \elim inl_a1 \with {
+          | inl_a, idp, inl_a1 => {?}
+        }
+    }
+}
 
 -- 10. Если B x является множеством, то \Pi (x : A) -> B x тоже является множеством.
 
 \func pi-isSet {A : \Type} (B : A -> \Type) (p : \Pi (x : A) -> isSet (B x)) : isSet (\Pi (x : A) -> B x) =>
-  \lam f f' eq eq' => {?}
+  \lam t s => retract'-isProp {t = s} {\Pi (x : A) -> t x = s x}
+      (\lam c d => funExt (\lam x => t x = s x) (\lam x => p x (t x) (s x) (c x) (d x)))
+      (\lam eq => funExt B eq)
+      (\lam t=s => (\lam x => path (\lam i => (t=s @ i) x), idp))
+
+
 
 -- 11. Докажите, что если A является множеством, то List A также им является.
 
 \func List-isSet {A : \Type} (pA : isSet A) : isSet (List A) => impl pA
-\where \func impl {A : \Type} (pA : isSet A) (x y : List A) (p q : x = y) : (p = q)
-  => {?}
+\where {
+  \func impl {A : \Type} (pA : isSet A) (x y : List A) (eq eq' : x = y) : (eq = eq') =>
+  \case \elim x, \elim y, \elim eq, \elim eq' \with {
+      | nil, cons a y', eq, eq' => contradiction
+      | cons a x', nil, eq, eq' => contradiction
+      | nil, nil, eq, eq' => {?}
+      | cons a x', cons a1 y', eq, eq' => \let tmp : a = a1 => ext eq \in {?}
+    }
+}
+
+      --    | nil, thenil_is_nil => retract-isProp {nil {A} = thenil} {\Sigma} Unit-isProp
+      --      (\lam t => ()) (\lam _ => thenil_is_nil) (\lam q => \case \elim thenil, \elim q, \elim  thenil_is_nil \with {
+      --          | thenil, idp, thenil_is_nil' => {?}
+      --        }) eq eq'
+      --  }
+
+
+      | pA, cons a x, cons a1 y, p, q => {?}
+}
 
 -- Optional:
 -- 12. Докажите, что n-типы замкнуты относительно образования \Pi-типов.
 --     Hint: Доказательство по индукции. Для случая suc n нужно доказать, что если f,g : \Pi (x : A) -> B x, то f = g эквивалентно \Pi (x : A) -> f x = g x.
 
-\func levelPi {A : \Type} (B : A -> \Type) (n : Nat) (p : \Pi (x : A) -> B x `hasLevel` n) : (\Pi (x : A) -> B x) `hasLevel` n => {?}
+\func levelPi {A : \Type} (B : A -> \Type) (n : Nat) (p : \Pi (x : A) -> B x `hasLevel` n) : (\Pi (x : A) -> B x) `hasLevel` n
+  | B, 0, p => pi-isSet B p
+  | {A}, B, suc n, p => \lam (f g : (\Pi (z : A) -> B z)) =>
+      \let rec => levelPi (\lam a => f a = g a) n (\lam x => p x (f x) (g x))
+        | FUN_EXT : ((\Pi (x : A) -> f x = g x) = (f = g))
+        => path (iso {(\Pi (x : A) -> f x = g x)} {f = g} (\lam lft => funExt B lft)
+                (\lam rgh => (\lam x => pmap (\lam func => func x) rgh))
+                (\lam t1 => {?}) (\lam eq => {?}))
+      \in rewriteF FUN_EXT rec
