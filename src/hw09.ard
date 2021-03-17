@@ -224,6 +224,6 @@
       \let rec => levelPi (\lam a => f a = g a) n (\lam x => p x (f x) (g x))
         | FUN_EXT : ((\Pi (x : A) -> f x = g x) = (f = g))
         => path (iso {(\Pi (x : A) -> f x = g x)} {f = g} (\lam lft => funExt B lft)
-                (\lam rgh => (\lam x => pmap (\lam func => func x) rgh))
-                (\lam t1 => {?}) (\lam eq => {?}))
+                (\lam rgh => (\lam x => path (\lam i => (rgh @ i) x)))
+                (\lam t1 => idp) (\lam eq => idp))
       \in rewriteF FUN_EXT rec
