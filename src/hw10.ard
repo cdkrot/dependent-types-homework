@@ -1,23 +1,53 @@
+\import Paths.Meta
+\import lect05 (funExt)
 \import lect10
 \import Utils \hiding (transport,Or,inl,inr)
 
+----------------------------------------------
+---        Thank you for the course!       ---
+---             ❤  ️🧡  ❤  ️🧡  ❤️            ---
+----------------------------------------------
+
 -- 1. Докажите, что если A : \Prop, то Trunc A эквивалентен A.
 
-\func trunc-prop {A : \Prop} : Trunc A <-> A => {?}
+\func trunc-prop {A : \Prop} : Trunc A <-> A =>
+  (\lam tr => \case tr \with {trunc x => x}, \lam a => trunc a)
 
 -- 2. Докажите следующий закон де Моргана.
 
-\func deMorgan (A B C : \Prop) : (\Sigma A (B `Or` C)) <-> ((\Sigma A B) `Or` (\Sigma A C)) => {?}
+\func deMorgan (A B C : \Prop) : (\Sigma A (B `Or` C)) <-> ((\Sigma A B) `Or` (\Sigma A C)) =>
+  (\lam a_bc => \case a_bc.2 \with {
+    | inl x => inl (a_bc.1, x)
+    | inr y => inr (a_bc.1, y)
+  }, \lam ab_ac => \case ab_ac \with {
+    | inl x => (x.1, inl x.2)
+    | inr y => (y.1, inr y.2)
+  })
 
 -- 3. Определите элиминатор для Or через Or-rec, не используя паттерн матчинг на Or.
 
+\func Or-elim' {A B : \Prop} (C : Or A B -> \Prop)
+              (f : \Pi (x : A) -> C (inl x)) (g : \Pi (y : B) -> C (inr y))
+              (p : A `Or` B) : C p \elim p
+  | inl a => f a
+  | inr b => g b
+
 \func Or-elim {A B : \Prop} (C : Or A B -> \Prop)
               (f : \Pi (x : A) -> C (inl x)) (g : \Pi (y : B) -> C (inr y))
-              (p : A `Or` B) : C p => {?}
+              (p : A `Or` B) : C p =>
+  \let tmp => Or-rec {A} {B} { (\Sigma (t : A `Or` B) (C t))} (\lam x =>  (inl x : (Or A B), f x))
+                                                              (\lam x =>  (inr x : (Or A B), g x))
+                                                              p
+    | fst => tmp.1
+    | snd => tmp.2
+    | fst=p : (fst = p) => Path.inProp _ _
+  \in rewriteI fst=p snd
+
 
 -- 4. Докажите, что тип утверждений является множеством.
 
-\func prop-isSet : isSet \Prop => {?}
+\func prop-isSet : isSet \Prop =>
+  \lam x y eq eq' => Path.inProp eq eq'
 
 -- Можно сделать только одно из упражнений 5a,5b на выбор.
 -- 5a. Тип С называется когенератором, если для любых множеств A и B и любых функция f,g : A -> B верно, что если h `o` f = h `o` g для всех h : B -> C, то f = g.
@@ -27,7 +57,17 @@
 
 \func isCogenerator (C : \Type) => \Pi {A B : \Set} (f g : A -> B) (p : \Pi (h : B -> C) -> h `o` f = h `o` g) -> f = g
 
-\func PropIsCogenerator : isCogenerator \Prop => {?}
+-- \func coe (A : I -> \Type) (a : A left) (i : I) : A i
+
+\func help {A B : \Set} (f g : A -> B) (x : A) (eq : ((f x) = (f x)) = ((g x) = (g x))) : (f x = g x)
+  | f, g, x, eq => \let tmp : \Prop => f x = f x \in path (\lam i => \let ttt => eq @ i \in {?})
+
+\func PropIsCogenerator : isCogenerator \Prop =>
+  \lam {A} {B} f g p => \let   func : (B -> \Prop) => \lam x => (x = x)
+                             | funeq : (\Pi (x : A) -> f x = g x) => \lam (x : A)
+                             => \let tmp : ((f x) = (f x)) = ((g x) = (g x))=> path (\lam i => ((p func) @ i) x)-- pmap (\lam f => f x) (p func)
+                                \in path (\lam i => \let t => (tmp @ i)  )
+                        \in funExt (\lam _ => B) funeq
 
 -- 5b. Тип X называется инъективным, если для любой функции f : A -> X и любой инъекции i : A -> B сущесвует функция l : B -> X такая, что l `o` i = f.
 --     Докажите, что \Prop инъективен.
@@ -36,4 +76,9 @@
 
 \func isInjective (X : \Type) => \Pi {A B : \Type} (f : A -> X) (i : A -> B) (p : isInj i) -> \Sigma (l : B -> X) (l `o` i = f)
 
-\func Prop-isInjective : isInjective \Prop => {?}
+\func Prop-isInjective : isInjective \Prop =>
+  \lam {A} {B} f i p => \let l : B -> \Prop => \lam x => {?}
+  \in (l, funExt (\lam _ => \Prop) ({?}))
+
+
+
